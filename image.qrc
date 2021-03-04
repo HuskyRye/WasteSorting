@@ -1,0 +1,17 @@
+<RCC>
+    <qresource prefix="/new/prefix1">
+        <file>image/厨余垃圾.PNG</file>
+        <file>image/可回收物.PNG</file>
+        <file>image/其他垃圾.PNG</file>
+        <file>image/有害垃圾.PNG</file>
+        <file>image/中南大学.png</file>
+        <file>image/智能互联.png</file>
+        <file>image/识别中.png</file>
+        <file>image/满载警报.png</file>
+        <file>image/倾倒警报.png</file>
+        <file>image/logo1.png</file>
+        <file>image/主.png</file>
+        <file>image/工训大赛_.png</file>
+        <file>image/工训大赛.png</file>
+    </qresource>
+</RCC>
