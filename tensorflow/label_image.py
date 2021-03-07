@@ -77,7 +77,7 @@ def main():
     elif label in range(1, 4):
         print('有害垃圾')
     elif label in range(4, 7):
-        print('可回收物')
+        print('可回收垃圾')
     elif label in range(7, 10):
         print('厨余垃圾')
     else:

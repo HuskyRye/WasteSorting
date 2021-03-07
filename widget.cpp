@@ -7,8 +7,8 @@
  *  (at your option) any later version.
  *
  *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of 
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of 
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
@@ -337,7 +337,7 @@ void Widget::classifyFinished(QString cate_name)
         ui->label_4->setVisible(true);
         ui->label_5->setVisible(false);
         ui->frame->setStyleSheet("#frame {border-image: url(:/new/prefix1/image/主.png);}");
-    } else if (cate_name == "可回收物")
+    } else if (cate_name == "可回收垃圾")
         serialWrite('\x01');
     else if (cate_name == "厨余垃圾")
         serialWrite('\x02');
