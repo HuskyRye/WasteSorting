@@ -61,7 +61,7 @@ Widget::Widget(QWidget* parent)
 #ifdef Q_OS_WIN
     playList->addMedia(QUrl::fromLocalFile("../WasteSorting/test.mp4"));
 #else
-    playList->addMedia(QUrl::fromLocalFile("/home/pi/Desktop/WasteSorting/test.mp4"));
+    playList->addMedia(QUrl::fromLocalFile("/home/pi/WasteSorting/test.mp4"));
 #endif
     playList->setPlaybackMode(QMediaPlaylist::CurrentItemInLoop);
     player->setPlaylist(playList);
@@ -325,9 +325,6 @@ void Widget::onRequestFinished(QNetworkReply* reply)
 
 void Widget::classifyFinished(QString cate_name)
 {
-    number += 1;
-    ui->textEdit->append(QString::number(number) + " " + cate_name + " 1 OK!");
-
     ui->frame->setStyleSheet("#frame {border-image: url(:/new/prefix1/image/" + cate_name + ".PNG);}");
     ui->label_3->setText("投递中");
     if (cate_name == "识别失败") {
@@ -337,12 +334,16 @@ void Widget::classifyFinished(QString cate_name)
         ui->label_4->setVisible(true);
         ui->label_5->setVisible(false);
         ui->frame->setStyleSheet("#frame {border-image: url(:/new/prefix1/image/主.png);}");
-    } else if (cate_name == "可回收垃圾")
-        serialWrite('\x01');
-    else if (cate_name == "厨余垃圾")
-        serialWrite('\x02');
-    else if (cate_name == "有害垃圾")
-        serialWrite('\x04');
-    else
-        serialWrite('\x08');
+    } else {
+        number += 1;
+        ui->textEdit->append(QString::number(number) + " " + cate_name + " 1 OK!");
+        if (cate_name == "可回收垃圾")
+            serialWrite('\x01');
+        else if (cate_name == "厨余垃圾")
+            serialWrite('\x02');
+        else if (cate_name == "有害垃圾")
+            serialWrite('\x04');
+        else
+            serialWrite('\x08');
+    }
 }
