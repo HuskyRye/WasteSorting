@@ -20,7 +20,8 @@ SOURCES += \
     widget.cpp
 
 HEADERS += \
-    widget.h
+    widget.h \
+    tensorflow.h
 
 FORMS += \
     widget.ui
@@ -35,3 +36,8 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 RESOURCES += \
     image.qrc
+
+INCLUDEPATH += /home/pi/tensorflow \
+               /home/pi/tensorflow/tensorflow/lite/tools/make/downloads/flatbuffers/include
+LIBS += -L/home/pi/tensorflow/tensorflow/lite/tools/make/gen/rpi_armv7l/lib
+LIBS += -ltensorflow-lite -ldl

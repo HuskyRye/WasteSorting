@@ -54,6 +54,9 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 
+#include "tensorflow.h"
+#include "stdint.h"
+
 #if _MSC_VER >= 1600
 #pragma execution_character_set("utf-8")
 #endif
@@ -96,6 +99,23 @@ private:
     void classifyFinished(QString cate_name);
 
     qint64 number;
+
+#ifdef Q_OS_WIN
+#else
+    std::string model_file = "../WasteSorting/tensorflow/model.tflite";
+    std::unique_ptr<tflite::FlatBufferModel> model;
+    std::unique_ptr<tflite::Interpreter> interpreter;
+    tflite::ops::builtin::BuiltinOpResolver resolver;
+    TfLiteTensor* input_tensor;
+    template <class T>
+    void formatImageTFLite(T* out, const uint8_t* in, int image_height, int image_width, int image_channels, int wanted_height, int wanted_width, int wanted_channels, bool input_floating);
+    template <class T>
+    void get_top_n(T* prediction, int prediction_size, size_t num_results,
+                   float threshold, std::vector<std::pair<float, int>>* top_results,
+                   TfLiteType input_type);
+    int output_size;
+#endif
+
 
 private slots:
     void timerUpdate();

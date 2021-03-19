@@ -61,7 +61,7 @@ Widget::Widget(QWidget* parent)
 #ifdef Q_OS_WIN
     playList->addMedia(QUrl::fromLocalFile("../WasteSorting/test.mp4"));
 #else
-    playList->addMedia(QUrl::fromLocalFile("/home/pi/Desktop/WasteSorting/test.mp4"));
+    playList->addMedia(QUrl::fromLocalFile("/home/pi/WasteSorting/test.mp4"));
 #endif
     playList->setPlaybackMode(QMediaPlaylist::CurrentItemInLoop);
     player->setPlaylist(playList);
@@ -73,6 +73,19 @@ Widget::Widget(QWidget* parent)
     connect(videoTimer, SIGNAL(timeout()), this, SLOT(videoTimerUpdate()));
     videoTimer->setSingleShot(true);
     videoTimer->start(10000);
+
+#ifdef Q_OS_WIN
+#else
+    // Tensorflow
+    model = tflite::FlatBufferModel::BuildFromFile(model_file.c_str());
+    tflite::InterpreterBuilder(*model, resolver)(&interpreter);
+    interpreter->SetNumThreads(4);
+    interpreter->AllocateTensors();
+    input_tensor = interpreter->tensor(interpreter->inputs()[0]);
+    TfLiteIntArray* output_dims = interpreter->tensor(interpreter->outputs()[0])->dims;
+    output_size = output_dims->data[output_dims->size - 1];
+#endif
+    //captureImage();
 }
 
 Widget::~Widget()
@@ -125,6 +138,7 @@ void Widget::initSerial()
         exit(0);
     }
     ui->textEdit->append("串口初始化成功");
+    serialWrite('\xFF');
 }
 
 void Widget::initCamera()
@@ -216,7 +230,8 @@ void Widget::serialWrite(const char data)
 
 void Widget::captureImage()
 {
-    system("raspistill -o ../WasteSorting/WasteSorting.jpg -t 1 -br 70 -hf -awb sun");
+    // system("raspistill -o ../WasteSorting/WasteSorting.jpg -t 1 -br 60 -hf -awb sun");
+    system("python3 ../WasteSorting/capture.py");
     QImage image("../WasteSorting/WasteSorting.jpg");
     emit(imageCaptured(0, image));
 }
@@ -242,7 +257,7 @@ void Widget::onImageCaptured(int, QImage image)
     sendRequest(imageBase64);
     */
 
-    /* 使用TensorFlow Lite */
+    /* TensorFlow Lite Python
 #ifdef Q_OS_WIN
     image.save("../WasteSorting/WasteSorting.jpg");
     FILE* fp = _popen("python ../WasteSorting/tensorflow/label_image.py", "rt");
@@ -259,6 +274,149 @@ void Widget::onImageCaptured(int, QImage image)
     QString cate_name = QString::fromLocal8Bit(buf);
     qDebug() << cate_name;
     classifyFinished(cate_name);
+    */
+
+    /* Tensorflow Lite C++ */
+    image.save("../WasteSorting/WasteSorting.jpg");
+    image = image.convertToFormat(QImage::Format_RGB888).mirrored(true, false);
+    formatImageTFLite<uint8_t>(interpreter->typed_tensor<uint8_t>(interpreter->inputs()[0]), image.bits(),
+        image.height(), image.width(), 3, 224, 224, 3, false);
+    interpreter->Invoke();
+    std::vector<std::pair<float, int>> top_results;
+    get_top_n<uint8_t>(interpreter->typed_output_tensor<uint8_t>(0),
+        output_size, 1, 0.01f, &top_results, kTfLiteUInt8);
+    int index = top_results[0].second;
+    QString cate_name;
+    switch (index) {
+    case 0:
+        cate_name = "识别失败";
+        break;
+    case 1:
+    case 2:
+    case 3:
+        cate_name = "有害垃圾";
+        break;
+    case 4:
+    case 5:
+    case 6:
+        cate_name = "可回收垃圾";
+        break;
+    case 7:
+    case 8:
+        cate_name = "厨余垃圾";
+        break;
+    default:
+        cate_name = "其他垃圾";
+        break;
+    }
+    qDebug() << cate_name;
+    classifyFinished(cate_name);
+}
+
+template <class T>
+void Widget::formatImageTFLite(T* out, const uint8_t* in, int image_height, int image_width, int image_channels, int wanted_height, int wanted_width, int wanted_channels, bool input_floating)
+{
+    const float input_mean = 127.5f;
+    const float input_std = 127.5f;
+
+    int number_of_pixels = image_height * image_width * image_channels;
+    std::unique_ptr<tflite::Interpreter> interpreter(new tflite::Interpreter);
+
+    int base_index = 0;
+
+    // two inputs: input and new_sizes
+    interpreter->AddTensors(2, &base_index);
+
+    // one output
+    interpreter->AddTensors(1, &base_index);
+
+    // set input and output tensors
+    interpreter->SetInputs({ 0, 1 });
+    interpreter->SetOutputs({ 2 });
+
+    // set parameters of tensors
+    TfLiteQuantizationParams quant;
+    interpreter->SetTensorParametersReadWrite(0, kTfLiteFloat32, "input", { 1, image_height, image_width, image_channels }, quant);
+    interpreter->SetTensorParametersReadWrite(1, kTfLiteInt32, "new_size", { 2 }, quant);
+    interpreter->SetTensorParametersReadWrite(2, kTfLiteFloat32, "output", { 1, wanted_height, wanted_width, wanted_channels }, quant);
+
+    tflite::ops::builtin::BuiltinOpResolver resolver;
+    const TfLiteRegistration* resize_op = resolver.FindOp(tflite::BuiltinOperator_RESIZE_BILINEAR, 1);
+    auto* params = reinterpret_cast<TfLiteResizeBilinearParams*>(malloc(sizeof(TfLiteResizeBilinearParams)));
+    params->align_corners = false;
+    interpreter->AddNodeWithParameters({ 0, 1 }, { 2 }, nullptr, 0, params, resize_op, nullptr);
+    interpreter->AllocateTensors();
+
+    // fill input image
+    // in[] are integers, cannot do memcpy() directly
+    auto input = interpreter->typed_tensor<float>(0);
+    for (int i = 0; i < number_of_pixels; i++)
+        input[i] = in[i];
+
+    // fill new_sizes
+    interpreter->typed_tensor<int>(1)[0] = wanted_height;
+    interpreter->typed_tensor<int>(1)[1] = wanted_width;
+
+    interpreter->Invoke();
+
+    auto output = interpreter->typed_tensor<float>(2);
+    auto output_number_of_pixels = wanted_height * wanted_height * wanted_channels;
+
+    for (int i = 0; i < output_number_of_pixels; i++) {
+        if (input_floating)
+            out[i] = (output[i] - input_mean) / input_std;
+        else
+            out[i] = (uint8_t)output[i];
+    }
+}
+
+template <class T>
+void Widget::get_top_n(T* prediction, int prediction_size, size_t num_results,
+    float threshold, std::vector<std::pair<float, int>>* top_results,
+    TfLiteType input_type)
+{
+    // Will contain top N results in ascending order.
+    std::priority_queue<std::pair<float, int>, std::vector<std::pair<float, int>>,
+        std::greater<std::pair<float, int>>>
+        top_result_pq;
+
+    const long count = prediction_size; // NOLINT(runtime/int)
+    float value = 0.0;
+
+    for (int i = 0; i < count; ++i) {
+        switch (input_type) {
+        case kTfLiteFloat32:
+            value = prediction[i];
+            break;
+        case kTfLiteInt8:
+            value = (prediction[i] + 128) / 256.0;
+            break;
+        case kTfLiteUInt8:
+            value = prediction[i] / 255.0;
+            break;
+        default:
+            break;
+        }
+        // Only add it if it beats the threshold and has a chance at being in
+        // the top N.
+        if (value < threshold) {
+            continue;
+        }
+
+        top_result_pq.push(std::pair<float, int>(value, i));
+
+        // If at capacity, kick the smallest value out.
+        if (top_result_pq.size() > num_results) {
+            top_result_pq.pop();
+        }
+    }
+
+    // Copy to output vector and reverse into descending order.
+    while (!top_result_pq.empty()) {
+        top_results->push_back(top_result_pq.top());
+        top_result_pq.pop();
+    }
+    std::reverse(top_results->begin(), top_results->end());
 }
 
 void Widget::sendRequest(QByteArray& imageBase64)
@@ -314,9 +472,9 @@ void Widget::onRequestFinished(QNetworkReply* reply)
         classifyFinished(cate_name);
 
     } else {
-        serialWrite('\xFF');
-        ui->textEdit->append("识别失败，请重试");
-        ui->label_3->setText("识别失败");
+        serialWrite('\xFD');
+        //ui->textEdit->append("识别失败，请重试");
+        //ui->label_3->setText("识别失败");
         ui->label_4->setVisible(true);
         ui->label_5->setVisible(false);
         ui->frame->setStyleSheet("#frame {border-image: url(:/new/prefix1/image/主.png);}");
@@ -325,24 +483,25 @@ void Widget::onRequestFinished(QNetworkReply* reply)
 
 void Widget::classifyFinished(QString cate_name)
 {
-    number += 1;
-    ui->textEdit->append(QString::number(number) + " " + cate_name + " 1 OK!");
-
     ui->frame->setStyleSheet("#frame {border-image: url(:/new/prefix1/image/" + cate_name + ".PNG);}");
     ui->label_3->setText("投递中");
     if (cate_name == "识别失败") {
-        serialWrite('\xFF');
-        ui->textEdit->append("识别失败，请重试");
-        ui->label_3->setText("识别失败");
+        serialWrite('\xFD');
+        //ui->textEdit->append("识别失败，请重试");
+        //ui->label_3->setText("识别失败");
         ui->label_4->setVisible(true);
         ui->label_5->setVisible(false);
         ui->frame->setStyleSheet("#frame {border-image: url(:/new/prefix1/image/主.png);}");
-    } else if (cate_name == "可回收垃圾")
-        serialWrite('\x01');
-    else if (cate_name == "厨余垃圾")
-        serialWrite('\x02');
-    else if (cate_name == "有害垃圾")
-        serialWrite('\x04');
-    else
-        serialWrite('\x08');
+    } else {
+        number += 1;
+        ui->textEdit->append(QString::number(number) + " " + cate_name + " 1 OK!");
+        if (cate_name == "可回收垃圾")
+            serialWrite('\x01');
+        else if (cate_name == "厨余垃圾")
+            serialWrite('\x02');
+        else if (cate_name == "有害垃圾")
+            serialWrite('\x04');
+        else
+            serialWrite('\x08');
+    }
 }

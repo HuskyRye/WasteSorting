@@ -20,9 +20,7 @@
 
 from tflite_runtime.interpreter import Interpreter
 from PIL import Image
-import cv2
 import re
-import os
 import numpy as np
 
 
@@ -70,7 +68,7 @@ def main():
     pil_im.transpose(Image.FLIP_LEFT_RIGHT)
 
     results = classify_image(interpreter, pil_im)
-    # print(results)
+    #print(results)
     label = results[0][0]
     if label == 0:
         print('识别失败')
@@ -78,7 +76,7 @@ def main():
         print('有害垃圾')
     elif label in range(4, 7):
         print('可回收垃圾')
-    elif label in range(7, 10):
+    elif label in range(7, 9):
         print('厨余垃圾')
     else:
         print('其他垃圾')
