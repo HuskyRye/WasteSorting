@@ -7,8 +7,8 @@
  *  (at your option) any later version.
  *
  *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of 
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of 
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
@@ -56,6 +56,9 @@
 
 #include "tensorflow.h"
 #include "stdint.h"
+
+#include "opencv2/opencv.hpp"
+#include <sys/stat.h>
 
 #if _MSC_VER >= 1600
 #pragma execution_character_set("utf-8")
@@ -115,7 +118,8 @@ private:
                    TfLiteType input_type);
     int output_size;
 #endif
-
+    cv::VideoCapture capture;
+    QImage cvMat2QImage(const cv::Mat& mat);
 
 private slots:
     void timerUpdate();

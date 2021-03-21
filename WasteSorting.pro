@@ -41,3 +41,20 @@ INCLUDEPATH += /home/pi/tensorflow \
                /home/pi/tensorflow/tensorflow/lite/tools/make/downloads/flatbuffers/include
 LIBS += -L/home/pi/tensorflow/tensorflow/lite/tools/make/gen/rpi_armv7l/lib
 LIBS += -ltensorflow-lite -ldl
+
+INCLUDEPATH += /usr/local/include/opencv4 \
+                /usr/local/include/opencv4/opencv2
+
+LIBS += /usr/local/lib/libopencv_calib3d.so \
+        /usr/local/lib/libopencv_core.so \
+        /usr/local/lib/libopencv_features2d.so \
+        /usr/local/lib/libopencv_flann.so \
+        /usr/local/lib/libopencv_highgui.so \
+        /usr/local/lib/libopencv_imgcodecs.so \
+        /usr/local/lib/libopencv_imgproc.so \
+        /usr/local/lib/libopencv_ml.so \
+        /usr/local/lib/libopencv_objdetect.so \
+        /usr/local/lib/libopencv_photo.so \
+        /usr/local/lib/libopencv_stitching.so \
+        /usr/local/lib/libopencv_videoio.so \
+        /usr/local/lib/libopencv_video.so \

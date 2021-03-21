@@ -1,6 +1,4 @@
 
-#   Copyright(C) 2021 刘臣轩
-
 #   This program is free software: you can redistribute it and / or modify
 #   it under the terms of the GNU General Public License as published by
 #   the Free Software Foundation, either version 3 of the License, or
@@ -59,16 +57,17 @@ def classify_image(interpreter, image, top_k=1):
 def main():
     # labels = load_labels('labels_mobilenet_quant_v1_224.txt')
     # interpreter = Interpreter('mobilenet_v1_1.0_224_quant.tflite')
-    # labels = loadLabels('../WasteSorting/tensorflow/labels.txt')
+    labels = loadLabels('../WasteSorting/tensorflow/labels.txt')
     interpreter = Interpreter('../WasteSorting/tensorflow/model.tflite')
     interpreter.allocate_tensors()
 
     pil_im = Image.open('../WasteSorting/WasteSorting.jpg').convert(
         'RGB').resize((224, 224), Image.ANTIALIAS)
-    pil_im.transpose(Image.FLIP_LEFT_RIGHT)
+    #pil_im.transpose(Image.FLIP_LEFT_RIGHT)
 
     results = classify_image(interpreter, pil_im)
-    #print(results)
+    print(results)
+    print(labels[results[0][0]])
     label = results[0][0]
     if label == 0:
         print('识别失败')
